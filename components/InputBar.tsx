@@ -1,115 +1,151 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import PaperclipIcon from './icons/PaperclipIcon';
+import CameraIcon from './icons/CameraIcon';
 import XCircleIcon from './icons/XCircleIcon';
+import CameraCapture from './CameraCapture';
 
 interface InputBarProps {
-  onSend: (text: string, image?: {b64: string, mime: string}) => void;
+  onSend: (text: string, image?: { b64: string; mime: string }) => void;
   disabled: boolean;
 }
 
-const fileToBase64 = (file: File): Promise<{b64: string, mime: string}> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      const b64 = result.split(',')[1];
-      resolve({ b64, mime: file.type });
-    };
-    reader.onerror = error => reject(error);
-  });
+const fileToB64 = (file: File): Promise<{ b64: string; mime: string }> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            const result = reader.result as string;
+            const [mimePart, b64Part] = result.split(';base64,');
+            const mime = mimePart.split(':')[1];
+            resolve({ b64: b64Part, mime });
+        };
+        reader.onerror = (error) => reject(error);
+    });
 };
+
+const dataUrlToB64 = (dataUrl: string): { b64: string; mime: string } => {
+    const [mimePart, b64Part] = dataUrl.split(';base64,');
+    const mime = mimePart.split(':')[1];
+    return { b64: b64Part, mime };
+};
+
 
 const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
   const [text, setText] = useState('');
-  const [image, setImage] = useState<{file: File, preview: string} | null>(null);
+  const [image, setImage] = useState<{ preview: string; fileData: { b64: string; mime: string } } | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    // When the component unmounts or the image changes, revoke the object URL to prevent memory leaks.
-    return () => {
-      if (image?.preview) {
-        URL.revokeObjectURL(image.preview);
-      }
-    };
-  }, [image]);
+  const canSend = text.trim().length > 0 || !!image;
 
   const handleSend = () => {
-    if ((!text.trim() && !image) || disabled) return;
-
-    if (image) {
-      fileToBase64(image.file).then(imageData => {
-        onSend(text, imageData);
-        setText('');
-        setImage(null);
-      }).catch(err => {
-        console.error("Error converting file to base64:", err);
-      });
-    } else {
-      onSend(text);
-      setText('');
-    }
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImage({file, preview: URL.createObjectURL(file)});
-    }
-    // Reset file input value to allow selecting the same file again
+    if (disabled || !canSend) return;
+    onSend(text, image?.fileData);
+    setText('');
+    setImage(null);
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
     }
   };
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const fileData = await fileToB64(file);
+      setImage({
+        preview: URL.createObjectURL(file),
+        fileData: fileData
+      });
+    }
+  };
+
+  const handleCameraCapture = (dataUrl: string) => {
+    const fileData = dataUrlToB64(dataUrl);
+    setImage({
+        preview: dataUrl,
+        fileData: fileData
+    });
+    setIsCameraOpen(false);
+  };
+
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(event.target.value);
+    // Auto-resize textarea
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = 'auto';
+      textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
+    }
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-brand-green-50 border-t border-brand-green-200">
-      <div className="w-full max-w-4xl mx-auto p-4">
-        {image && (
-          <div className="relative inline-block mb-2">
-            <img src={image.preview} alt="Preview" className="h-20 w-20 object-cover rounded-md" />
-            <button
-              onClick={() => setImage(null)}
-              className="absolute -top-2 -right-2 bg-gray-700 rounded-full p-0.5 text-white"
-            >
-              <XCircleIcon />
-            </button>
-          </div>
-        )}
-        <div className="relative flex items-center bg-white rounded-full shadow-sm border border-gray-200 focus-within:ring-2 focus-within:ring-brand-green-500">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*"
-            className="hidden"
-          />
+    <div className="bg-white border-t border-gray-200 p-4 fixed bottom-0 w-full max-w-4xl mx-auto" style={{left: '50%', transform: 'translateX(-50%)'}}>
+      {image && (
+        <div className="relative w-24 h-24 mb-2">
+          <img src={image.preview} alt="Preview" className="w-full h-full object-cover rounded-md" />
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 text-gray-500 hover:text-brand-green-600"
-            disabled={disabled}
+            onClick={() => {
+                setImage(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            className="absolute -top-2 -right-2 bg-gray-700 text-white rounded-full"
           >
-            <PaperclipIcon />
-          </button>
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask a question or upload a plant photo..."
-            className="flex-1 p-3 bg-transparent border-none focus:ring-0 outline-none text-gray-800"
-            disabled={disabled}
-          />
-          <button
-            onClick={handleSend}
-            disabled={disabled || (!text.trim() && !image)}
-            className="p-3 text-white bg-brand-green-600 rounded-full m-1 hover:bg-brand-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            <SendIcon />
+            <XCircleIcon />
           </button>
         </div>
+      )}
+      <div className="flex items-end bg-gray-100 rounded-lg p-2">
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="p-2 text-gray-500 hover:text-brand-green-600 disabled:opacity-50"
+          disabled={disabled || !!image}
+          aria-label="Attach file"
+        >
+          <PaperclipIcon />
+        </button>
+        <button
+          onClick={() => setIsCameraOpen(true)}
+          className="p-2 text-gray-500 hover:text-brand-green-600 disabled:opacity-50"
+          disabled={disabled || !!image}
+          aria-label="Use camera"
+        >
+          <CameraIcon />
+        </button>
+        <textarea
+          ref={textAreaRef}
+          rows={1}
+          value={text}
+          onChange={handleInput}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask a question or describe your plant..."
+          className="flex-1 bg-transparent px-2 resize-none border-none focus:ring-0 max-h-36 no-scrollbar"
+          disabled={disabled}
+        />
+        <button
+          onClick={handleSend}
+          disabled={disabled || !canSend}
+          className="p-2 text-white bg-brand-green-600 rounded-full disabled:bg-brand-green-300 disabled:cursor-not-allowed"
+          aria-label="Send message"
+        >
+          <SendIcon />
+        </button>
       </div>
+      {isCameraOpen && <CameraCapture onCapture={handleCameraCapture} onClose={() => setIsCameraOpen(false)} />}
     </div>
   );
 };

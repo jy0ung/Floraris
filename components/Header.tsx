@@ -1,23 +1,28 @@
-
 import React from 'react';
+import SettingsIcon from './icons/SettingsIcon';
 
 const LeafIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.5 7.172a1 1 0 011.414 0L10 9.586l2.086-2.414a1 1 0 111.414 1.414L11.414 11l2.414 2.086a1 1 0 11-1.414 1.414L10 12.414l-2.086 2.414a1 1 0 11-1.414-1.414L8.586 11 6.172 8.914a1 1 0 010-1.414L6.5 7.172z" clipRule="evenodd" style={{display: 'none'}}/>
-        <path d="M15.445 5.722a.75.75 0 01.13 1.054l-5.25 7.5a.75.75 0 01-1.18.082L4.57 9.51a.75.75 0 011.01-1.118l3.41 3.03 4.79-6.843a.75.75 0 011.054-.13z" style={{display: 'none'}}/>
-        <path d="M10 2a.75.75 0 01.75.75v.255a3.8 3.8 0 012.793 3.023c.273.912.457 1.86.457 2.847 0 3.314-2.686 6-6 6s-6-2.686-6-6c0-.987.184-1.935.457-2.847A3.8 3.8 0 018.5 3.005V2.75A.75.75 0 0110 2zm3 9.75a3 3 0 00-3-3 3 3 0 00-3 3v.016a3.8 3.8 0 002.543 3.69c.1.037.202.07.307.1v1.944a.75.75 0 001.5 0v-1.944c.105-.03.207-.063.307-.1A3.8 3.8 0 0013 11.766V11.75z" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.61,3.42C15.8,2.69,13.84,3.33,13,4.8C12.16,3.33,10.2,2.69,8.39,3.42C6.29,4.26,5.1,6.4,5.34,8.57C5.53,10.31,6.56,12.2,8.47,14.5C9.92,16.21,11,17.33,11.23,17.75C11.43,18.04,11.5,18.14,11.5,18.14L12,19L12.5,18.14C12.5,18.14,12.57,18.04,12.77,17.75C13,17.33,14.08,16.21,15.53,14.5C17.44,12.2,18.47,10.31,18.66,8.57C18.9,6.4,17.71,4.26,17.61,3.42Z" />
     </svg>
 )
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    onSettingsClick: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onSettingsClick }) => {
   return (
-    <header className="bg-brand-green-600 shadow-md sticky top-0 z-10">
+    <header className="bg-brand-green-700 shadow-lg sticky top-0 z-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-center h-16">
+        <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-3">
             <LeafIcon />
-            <h1 className="text-xl font-bold text-white tracking-wide">Gardening Assistant AI</h1>
+            <h1 className="text-xl font-medium text-white tracking-wide">Floraris</h1>
           </div>
+          <button onClick={onSettingsClick} className="text-white p-2 rounded-full hover:bg-brand-green-600 focus:outline-none focus:ring-2 focus:ring-white" aria-label="Open settings">
+            <SettingsIcon />
+          </button>
         </div>
       </div>
     </header>
