@@ -7,12 +7,6 @@ interface CameraCaptureProps {
   onClose: () => void;
 }
 
-const resolutions = [
-    { label: '480p', width: 640, height: 480 },
-    { label: '720p', width: 1280, height: 720 },
-    { label: '1080p', width: 1920, height: 1080 },
-];
-
 const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,7 +14,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
   
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [activeDeviceId, setActiveDeviceId] = useState<string | undefined>(undefined);
-  const [selectedResolution, setSelectedResolution] = useState(resolutions[1]); // Default to 720p
 
   const [torchSupported, setTorchSupported] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -34,31 +27,17 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
     }
   }, []);
 
-  const startStream = useCallback(async (deviceId: string, resolution: { label: string, width: number; height: number; }) => {
+  const startStream = useCallback(async (constraints: MediaStreamConstraints) => {
     stopStream();
     setIsTorchOn(false);
     setTorchSupported(false);
     try {
-      const constraints = { 
-        video: { 
-          deviceId: { exact: deviceId },
-          width: { ideal: resolution.width },
-          height: { ideal: resolution.height },
-        } 
-      };
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = mediaStream;
       
       const track = mediaStream.getVideoTracks()[0];
       if (track) {
         const capabilities = track.getCapabilities();
-        
-        // @ts-ignore - focusMode is not in all standard type definitions but is widely supported
-        if (capabilities.focusMode?.includes('continuous')) {
-            // @ts-ignore
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-        }
-        
         // @ts-ignore
         if (capabilities.torch) {
             setTorchSupported(true);
@@ -68,7 +47,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-      setActiveDeviceId(deviceId);
+      
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(videoInputs);
+      const currentDeviceId = track?.getSettings().deviceId;
+      setActiveDeviceId(currentDeviceId);
+
       setError(null);
     } catch (err) {
         console.error("Error accessing camera:", err);
@@ -79,71 +64,27 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
             } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
                 errorMessage = "Camera access denied. Please grant permission in your browser's settings to use this feature.";
             } else if (err.name === "OverconstrainedError" || err.name === "ConstraintNotSatisfiedError") {
-                errorMessage = `The selected resolution (${resolution.label}) is not supported by your camera. Please try a lower resolution.`;
+                errorMessage = `The camera constraints could not be satisfied. This might be because the camera is already in use.`;
             }
         }
         setError(errorMessage);
     }
   }, [stopStream]);
 
-  // This effect runs once on mount to get permissions and enumerate devices.
+  // This effect runs once on mount to get the camera stream.
   useEffect(() => {
-    const setup = async () => {
-        let tempStream: MediaStream | null = null;
-        try {
-            // Request permission and get device labels, but store the stream to close it.
-            tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoInputs = devices.filter(d => d.kind === 'videoinput');
-
-            if (videoInputs.length === 0) {
-                throw new DOMException("No camera was found on your device.", "NotFoundError");
-            }
-            
-            setVideoDevices(videoInputs);
-
-            const backCamera = videoInputs.find(d => /back|environment/i.test(d.label));
-            const initialDeviceId = backCamera ? backCamera.deviceId : videoInputs[0].deviceId;
-            
-            if (initialDeviceId) {
-                // This triggers the next useEffect to start the "real" stream
-                setActiveDeviceId(initialDeviceId);
-            }
-
-        } catch (err: any) {
-             console.error("Error setting up camera devices:", err);
-             let errorMessage = "Could not access camera devices. Please check your browser permissions.";
-             if (err instanceof DOMException) {
-                if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-                    errorMessage = "No camera was found on your device. Please ensure one is connected and not in use by another application.";
-                } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-                    errorMessage = "Camera access denied. Please grant permission in your browser's settings to use this feature.";
-                }
-             }
-             setError(errorMessage);
-        } finally {
-            // CRITICAL FIX: Ensure the temporary stream used for enumeration is always stopped.
-            if (tempStream) {
-                tempStream.getTracks().forEach(track => track.stop());
-            }
-        }
-    };
-    setup();
+    const initialConstraints = { video: { facingMode: { ideal: 'environment' } } };
+    
+    startStream(initialConstraints).catch(err => {
+        console.warn("Could not get back camera, trying default", err);
+        // Fallback to any camera if environment facing fails
+        startStream({ video: true });
+    });
 
     return () => {
       stopStream();
     };
-  }, []); // Intentionally empty to run only once. stopStream is stable via useCallback.
-
-  // This effect starts the actual video stream when a device is selected or resolution changes.
-  useEffect(() => {
-    if (activeDeviceId) {
-        startStream(activeDeviceId, selectedResolution);
-    }
-    // Cleanup is handled by startStream (it calls stopStream) and the unmount cleanup
-  }, [activeDeviceId, selectedResolution, startStream]);
-
+  }, [startStream, stopStream]);
 
   const handleSwitchCamera = () => {
     if (videoDevices.length < 2 || !activeDeviceId) return;
@@ -153,7 +94,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
     const nextDeviceId = videoDevices[nextIndex].deviceId;
 
     if (nextDeviceId) {
-      setActiveDeviceId(nextDeviceId);
+      startStream({ video: { deviceId: { exact: nextDeviceId } } });
     }
   };
 
@@ -185,13 +126,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
         onCapture(dataUrl);
         onClose();
       }
-    }
-  };
-
-  const handleResolutionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newResolution = resolutions.find(r => r.label === e.target.value);
-    if (newResolution) {
-        setSelectedResolution(newResolution);
     }
   };
 
@@ -232,41 +166,14 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
             )}
         </div>
       </div>
-      {!error ? (
-        <div className="mt-4 flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-center gap-2">
-                <label htmlFor="resolution-select" className="text-white text-sm font-medium">Resolution:</label>
-                <select 
-                    id="resolution-select"
-                    value={selectedResolution.label}
-                    onChange={handleResolutionChange}
-                    className="bg-gray-700 text-white border-gray-600 rounded-md py-1 px-2 text-sm focus:ring-brand-green-500 focus:border-brand-green-500"
-                >
-                    {resolutions.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
-                </select>
-            </div>
-            <div className="flex items-center gap-4">
-                <button onClick={handleCapture} className="px-6 py-3 bg-brand-green-600 text-white rounded-full font-semibold hover:bg-brand-green-700">
-                    Capture Photo
-                </button>
-                <button onClick={onClose} className="px-6 py-3 bg-gray-700 text-white rounded-full font-semibold hover:bg-gray-600">
-                    Cancel
-                </button>
-            </div>
-        </div>
-      ) : (
-        <div className="mt-4">
-            <div className="flex items-center gap-2">
-                <label htmlFor="resolution-select" className="text-white text-sm font-medium">Try Resolution:</label>
-                <select
-                    id="resolution-select"
-                    value={selectedResolution.label}
-                    onChange={handleResolutionChange}
-                    className="bg-gray-700 text-white border-gray-600 rounded-md py-1 px-2 text-sm focus:ring-brand-green-500 focus:border-brand-green-500"
-                >
-                    {resolutions.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
-                </select>
-            </div>
+      {!error && (
+        <div className="mt-4 flex items-center gap-4">
+            <button onClick={handleCapture} className="px-6 py-3 bg-brand-green-600 text-white rounded-full font-semibold hover:bg-brand-green-700">
+                Capture Photo
+            </button>
+            <button onClick={onClose} className="px-6 py-3 bg-gray-700 text-white rounded-full font-semibold hover:bg-gray-600">
+                Cancel
+            </button>
         </div>
       )}
     </div>

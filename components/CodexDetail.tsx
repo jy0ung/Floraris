@@ -11,8 +11,6 @@ import SoilIcon from './icons/SoilIcon';
 import FertilizerIcon from './icons/FertilizerIcon';
 import PestWarningIcon from './icons/PestWarningIcon';
 import { useDiary } from '../contexts/DiaryContext';
-import useRelatedPlants from '../hooks/useRelatedPlants';
-import CodexCard from './CodexCard';
 import ShareIcon from './icons/ShareIcon';
 import ShareFallbackModal from './ShareFallbackModal';
 import PencilIcon from './icons/PencilIcon';
@@ -59,18 +57,6 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
     const [isShareModalOpen, setShareModalOpen] = useState(false);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
-    
-    const { relatedPlantNames, isLoading: areRelatedPlantsLoading } = useRelatedPlants(entry);
-
-    const relatedEntries = useMemo(() => {
-        if (!relatedPlantNames.length || !codexEntries.length) return [];
-        
-        return relatedPlantNames
-            .map(name => 
-                codexEntries.find(e => e.name.toLowerCase() === name.toLowerCase() && e.id !== entry.id)
-            )
-            .filter((e): e is CodexEntry => !!e);
-    }, [relatedPlantNames, codexEntries, entry.id]);
     
     const careGuide = useMemo(() => parseCareGuide(entry.markdownContent), [entry.markdownContent]);
     const introductionHtml = useMemo(() => parseMarkdown(careGuide.introduction, { breaks: false, plants, codexEntries }), [careGuide.introduction, plants, codexEntries]);
@@ -126,16 +112,6 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
           setShareModalOpen(true);
         }
     };
-
-    const SkeletonCard = () => (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden animate-pulse">
-            <div className="h-40 bg-gray-300 dark:bg-gray-700"></div>
-            <div className="p-4">
-                <div className="h-5 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
-            </div>
-        </div>
-    );
 
     return (
         <>
@@ -213,27 +189,6 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
                     <CareSection title="Fertilizer" icon={<FertilizerIcon />} content={careGuide.fertilizer} plants={plants} codexEntries={codexEntries} />
                     <CareSection title="Pests & Diseases" icon={<PestWarningIcon />} content={careGuide.pests} plants={plants} codexEntries={codexEntries} />
                 </div>
-
-                 {/* Related Plants Section */}
-                {(areRelatedPlantsLoading || relatedEntries.length > 0) && (
-                    <div className="pt-6">
-                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">You Might Also Like</h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            {areRelatedPlantsLoading ? (
-                                <>
-                                    <SkeletonCard />
-                                    <SkeletonCard />
-                                    <SkeletonCard />
-                                    <SkeletonCard />
-                                </>
-                            ) : (
-                                relatedEntries.map(relatedEntry => (
-                                    <CodexCard key={relatedEntry.id} entry={relatedEntry} onClick={() => onSelectEntry(relatedEntry.id)} />
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
             {isDeleteModalOpen && (
                 <DeleteCodexConfirmationModal
