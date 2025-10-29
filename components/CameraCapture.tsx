@@ -86,10 +86,14 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
     }
   }, [stopStream]);
 
+  // This effect runs once on mount to get permissions and enumerate devices.
   useEffect(() => {
     const setup = async () => {
+        let tempStream: MediaStream | null = null;
         try {
-            await navigator.mediaDevices.getUserMedia({ video: true }); // Request permission
+            // Request permission and get device labels, but store the stream to close it.
+            tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoInputs = devices.filter(d => d.kind === 'videoinput');
 
@@ -103,6 +107,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
             const initialDeviceId = backCamera ? backCamera.deviceId : videoInputs[0].deviceId;
             
             if (initialDeviceId) {
+                // This triggers the next useEffect to start the "real" stream
                 setActiveDeviceId(initialDeviceId);
             }
 
@@ -117,6 +122,11 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
                 }
              }
              setError(errorMessage);
+        } finally {
+            // CRITICAL FIX: Ensure the temporary stream used for enumeration is always stopped.
+            if (tempStream) {
+                tempStream.getTracks().forEach(track => track.stop());
+            }
         }
     };
     setup();
@@ -124,12 +134,14 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
     return () => {
       stopStream();
     };
-  }, [stopStream]);
+  }, []); // Intentionally empty to run only once. stopStream is stable via useCallback.
 
+  // This effect starts the actual video stream when a device is selected or resolution changes.
   useEffect(() => {
     if (activeDeviceId) {
         startStream(activeDeviceId, selectedResolution);
     }
+    // Cleanup is handled by startStream (it calls stopStream) and the unmount cleanup
   }, [activeDeviceId, selectedResolution, startStream]);
 
 
@@ -150,9 +162,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
 
     const track = streamRef.current.getVideoTracks()[0];
     try {
-        // FIX: The `torch` property is not part of the standard MediaTrackConstraintSet type definition,
-        // so we use @ts-ignore to bypass the TypeScript type check for this widely supported feature.
-        // @ts-ignore
+        // @ts-ignore - The `torch` property is not part of the standard MediaTrackConstraintSet type definition
         await track.applyConstraints({ advanced: [{ torch: !isTorchOn }] });
         setIsTorchOn(prev => !prev);
     } catch (err) {
