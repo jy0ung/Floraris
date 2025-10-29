@@ -6,6 +6,12 @@ import PlusIcon from './icons/PlusIcon';
 import { Plant } from '../types';
 import IdentifyModal from './IdentifyModal';
 
+interface PlantDiaryProps {
+  selectedPlantId: string | null;
+  onSelectPlant: (id: string) => void;
+  onBack: () => void;
+}
+
 const PlantCard: React.FC<{ plant: Plant, onClick: () => void }> = ({ plant, onClick }) => (
   <div onClick={onClick} className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:border dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-xl dark:hover:border-brand-purple-600 transition-all duration-300 group">
     <div className="h-48 overflow-hidden">
@@ -18,11 +24,10 @@ const PlantCard: React.FC<{ plant: Plant, onClick: () => void }> = ({ plant, onC
   </div>
 );
 
-const PlantDiary: React.FC = () => {
+const PlantDiary: React.FC<PlantDiaryProps> = ({ selectedPlantId, onSelectPlant, onBack }) => {
   const { plants } = useDiary();
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [isIdentifyModalOpen, setIsIdentifyModalOpen] = useState(false);
-  const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState('addedDate_desc');
 
   const sortedPlants = useMemo(() => {
@@ -44,7 +49,7 @@ const PlantDiary: React.FC = () => {
   }, [plants, sortOrder]);
 
   if (selectedPlantId) {
-    return <PlantDetail plantId={selectedPlantId} onBack={() => setSelectedPlantId(null)} />;
+    return <PlantDetail plantId={selectedPlantId} onBack={onBack} />;
   }
 
   return (
@@ -90,7 +95,7 @@ const PlantDiary: React.FC = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {sortedPlants.map(plant => (
-            <PlantCard key={plant.id} plant={plant} onClick={() => setSelectedPlantId(plant.id)} />
+            <PlantCard key={plant.id} plant={plant} onClick={() => onSelectPlant(plant.id)} />
           ))}
         </div>
       )}

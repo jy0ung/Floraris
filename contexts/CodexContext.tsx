@@ -4,6 +4,7 @@ import { CodexEntry } from '../types';
 interface CodexContextType {
   codexEntries: CodexEntry[];
   addCodexEntry: (entryData: Omit<CodexEntry, 'id'>) => void;
+  deleteCodexEntry: (entryId: string) => void;
 }
 
 const CodexContext = createContext<CodexContextType | undefined>(undefined);
@@ -30,6 +31,7 @@ export const CodexProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     try {
       localStorage.setItem('flararis-codex-entries', JSON.stringify(codexEntries));
+    // FIX: Added curly braces to the catch block to fix a syntax error that caused multiple follow-on errors.
     } catch (error) {
       console.error("Could not save codex entries to localStorage", error);
     }
@@ -48,8 +50,12 @@ export const CodexProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setCodexEntries(prev => [...prev, newEntry]);
   };
+  
+  const deleteCodexEntry = (entryId: string) => {
+    setCodexEntries(prev => prev.filter(entry => entry.id !== entryId));
+  };
 
-  const value = { codexEntries, addCodexEntry };
+  const value = { codexEntries, addCodexEntry, deleteCodexEntry };
 
   return (
     <CodexContext.Provider value={value}>

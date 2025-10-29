@@ -1,56 +1,225 @@
-import React, { useMemo } from 'react';
-import { CodexEntry } from '../types';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { CodexEntry, Plant } from '../types';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import TrashIcon from './icons/TrashIcon';
+import { useCodex } from '../contexts/CodexContext';
+import DeleteCodexConfirmationModal from './DeleteCodexConfirmationModal';
+import { parseCareGuide, parseMarkdown } from '../utils/markdownUtils';
+import WaterDropIcon from './icons/WaterDropIcon';
+import SunIcon from './icons/SunIcon';
+import SoilIcon from './icons/SoilIcon';
+import FertilizerIcon from './icons/FertilizerIcon';
+import PestWarningIcon from './icons/PestWarningIcon';
+import { useDiary } from '../contexts/DiaryContext';
+import useRelatedPlants from '../hooks/useRelatedPlants';
+import CodexCard from './CodexCard';
+import ShareIcon from './icons/ShareIcon';
+import ShareFallbackModal from './ShareFallbackModal';
+
 
 interface CodexDetailProps {
     entry: CodexEntry;
     onBack: () => void;
+    onNavigateToPlant: (plantId: string) => void;
+    onSelectEntry: (entryId: string) => void;
 }
 
-const parseMarkdown = (text: string): string => {
-    if (typeof (window as any).marked?.parse === 'function' && typeof (window as any).DOMPurify?.sanitize === 'function') {
-      const marked = (window as any).marked;
-      // Configure marked to handle GitHub Flavored Markdown and line breaks for better chat formatting
-      marked.setOptions({
-          gfm: true,
-          breaks: true, // Converts single line breaks into <br>
-      });
-      const dirtyHtml = marked.parse(text);
-      return (window as any).DOMPurify.sanitize(dirtyHtml);
-    }
-    // Fallback for when marked or DOMPurify are not available
-    return text.replace(/\n/g, '<br />');
-  };
-
-const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack }) => {
-    const sanitizedHtml = useMemo(() => parseMarkdown(entry.markdownContent), [entry.markdownContent]);
+interface CareSectionProps {
+    title: string;
+    icon: React.ReactNode;
+    content: string;
+    plants: Plant[];
+    codexEntries: CodexEntry[];
+}
+  
+const CareSection: React.FC<CareSectionProps> = ({ title, icon, content, plants, codexEntries }) => {
+    // Use breaks: false for proper rendering of long-form markdown content like lists and blockquotes.
+    const sanitizedHtml = useMemo(() => parseMarkdown(content, { breaks: false, plants, codexEntries }), [content, plants, codexEntries]);
+    if (!content.trim()) return null;
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-            <button onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-brand-green-700 hover:text-brand-green-800 dark:text-brand-green-400 dark:hover:text-brand-green-300">
-                <ArrowLeftIcon />
-                Back to Codex
-            </button>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                <div className="flex flex-col md:flex-row items-start">
-                    <div className="flex-shrink-0 w-full md:w-1/3">
-                        <img className="w-full h-64 object-cover" src={entry.image} alt={entry.name} />
-                    </div>
-                    <div className="p-6 flex-1">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{entry.name}</h1>
-                        <p className="mt-1 text-md text-gray-500 dark:text-gray-400 italic">{entry.scientificName}</p>
-                    </div>
-                </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-3">
+                <div className="text-brand-green-600 dark:text-brand-green-400">{icon}</div>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">{title}</h3>
             </div>
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+        </div>
+    );
+};
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                <div 
-                    className="prose max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert" 
-                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                />
+const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPlant, onSelectEntry }) => {
+    const { deleteCodexEntry, codexEntries } = useCodex();
+    const { plants } = useDiary();
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [isShareModalOpen, setShareModalOpen] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    
+    const { relatedPlantNames, isLoading: areRelatedPlantsLoading } = useRelatedPlants(entry);
+
+    const relatedEntries = useMemo(() => {
+        if (!relatedPlantNames.length || !codexEntries.length) return [];
+        
+        return relatedPlantNames
+            .map(name => 
+                codexEntries.find(e => e.name.toLowerCase() === name.toLowerCase() && e.id !== entry.id)
+            )
+            .filter((e): e is CodexEntry => !!e);
+    }, [relatedPlantNames, codexEntries, entry.id]);
+    
+    const careGuide = useMemo(() => parseCareGuide(entry.markdownContent), [entry.markdownContent]);
+    const introductionHtml = useMemo(() => parseMarkdown(careGuide.introduction, { breaks: false, plants, codexEntries }), [careGuide.introduction, plants, codexEntries]);
+
+    useEffect(() => {
+        const element = contentRef.current;
+        if (!element) return;
+
+        const handleClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            const link = target.closest('a.internal-link');
+            if (link instanceof HTMLAnchorElement) {
+                event.preventDefault();
+                const plantId = link.dataset.plantId;
+                const codexId = link.dataset.codexId;
+
+                if (codexId) {
+                    onSelectEntry(codexId);
+                } else if (plantId) {
+                    onNavigateToPlant(plantId);
+                }
+            }
+        };
+
+        element.addEventListener('click', handleClick);
+        return () => {
+            element.removeEventListener('click', handleClick);
+        };
+    }, [onNavigateToPlant, onSelectEntry]);
+
+
+    const handleConfirmDelete = () => {
+        deleteCodexEntry(entry.id);
+        onBack();
+    };
+
+    const handleShare = async () => {
+        const shareUrl = `${window.location.origin}${window.location.pathname}?codexId=${entry.id}`;
+        const shareData = {
+          title: `Floraris Codex: ${entry.name}`,
+          text: `Check out the care guide for ${entry.name} on Floraris!`,
+          url: shareUrl,
+        };
+    
+        if (navigator.share) {
+          try {
+            await navigator.share(shareData);
+          } catch (err) {
+            console.error('Error sharing:', err);
+          }
+        } else {
+          // Fallback for browsers that don't support Web Share API
+          setShareModalOpen(true);
+        }
+    };
+
+    const SkeletonCard = () => (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden animate-pulse">
+            <div className="h-40 bg-gray-300 dark:bg-gray-700"></div>
+            <div className="p-4">
+                <div className="h-5 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
             </div>
         </div>
+    );
+
+    return (
+        <>
+            <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 space-y-6" ref={contentRef}>
+                <button onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-brand-green-700 hover:text-brand-green-800 dark:text-brand-green-400 dark:hover:text-brand-green-300">
+                    <ArrowLeftIcon />
+                    Back to Codex
+                </button>
+
+                {/* Header Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden md:flex">
+                    <div className="md:flex-shrink-0">
+                        <img className="h-56 w-full object-cover md:w-56" src={entry.image} alt={entry.name} />
+                    </div>
+                    <div className="p-6 flex-1">
+                         <div className="flex justify-between items-start">
+                            <div>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{entry.name}</h1>
+                                <p className="mt-1 text-md text-gray-500 dark:text-gray-400 italic">{entry.scientificName}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                                <button
+                                    onClick={handleShare}
+                                    className="p-2 text-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    aria-label={`Share ${entry.name} from Codex`}
+                                >
+                                    <ShareIcon />
+                                </button>
+                                <button
+                                    onClick={() => setDeleteModalOpen(true)}
+                                    className="p-2 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40"
+                                    aria-label={`Delete ${entry.name} from Codex`}
+                                >
+                                    <TrashIcon />
+                                </button>
+                            </div>
+                        </div>
+                         <div 
+                            className="mt-4 prose prose-sm max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert" 
+                            dangerouslySetInnerHTML={{ __html: introductionHtml }}
+                        />
+                    </div>
+                </div>
+
+                {/* Care Guide Sections */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <CareSection title="Watering" icon={<WaterDropIcon />} content={careGuide.watering} plants={plants} codexEntries={codexEntries} />
+                    <CareSection title="Sunlight" icon={<SunIcon />} content={careGuide.sunlight} plants={plants} codexEntries={codexEntries} />
+                    <CareSection title="Soil" icon={<SoilIcon />} content={careGuide.soil} plants={plants} codexEntries={codexEntries} />
+                    <CareSection title="Fertilizer" icon={<FertilizerIcon />} content={careGuide.fertilizer} plants={plants} codexEntries={codexEntries} />
+                    <CareSection title="Pests & Diseases" icon={<PestWarningIcon />} content={careGuide.pests} plants={plants} codexEntries={codexEntries} />
+                </div>
+
+                 {/* Related Plants Section */}
+                {(areRelatedPlantsLoading || relatedEntries.length > 0) && (
+                    <div className="pt-6">
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">You Might Also Like</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                            {areRelatedPlantsLoading ? (
+                                <>
+                                    <SkeletonCard />
+                                    <SkeletonCard />
+                                    <SkeletonCard />
+                                    <SkeletonCard />
+                                </>
+                            ) : (
+                                relatedEntries.map(relatedEntry => (
+                                    <CodexCard key={relatedEntry.id} entry={relatedEntry} onClick={() => onSelectEntry(relatedEntry.id)} />
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+            {isDeleteModalOpen && (
+                <DeleteCodexConfirmationModal
+                    entryName={entry.name}
+                    onClose={() => setDeleteModalOpen(false)}
+                    onConfirm={handleConfirmDelete}
+                />
+            )}
+            {isShareModalOpen && (
+                <ShareFallbackModal
+                    url={`${window.location.origin}${window.location.pathname}?codexId=${entry.id}`}
+                    onClose={() => setShareModalOpen(false)}
+                />
+            )}
+        </>
     );
 };
 

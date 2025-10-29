@@ -21,9 +21,39 @@ const AppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
   const [view, setView] = useState<View>('chat');
+  const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null);
+  const [selectedCodexEntryId, setSelectedCodexEntryId] = useState<string | null>(null);
+  
   const [dueReminders, setDueReminders] = useState<Reminder[]>([]);
   const previouslyDueIds = useRef<Set<string>>(new Set());
+
+  // Handle deep linking from shared URLs on initial load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const codexId = urlParams.get('codexId');
+
+    if (codexId) {
+      setView('codex');
+      setSelectedCodexEntryId(codexId);
+
+      // Clean the URL to prevent re-triggering on refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleViewChange = (newView: View) => {
+    setView(newView);
+    setSelectedPlantId(null);
+    setSelectedCodexEntryId(null);
+  }
+
+  const handleNavigateToPlant = (plantId: string) => {
+    setView('diary');
+    setSelectedPlantId(plantId);
+    setSelectedCodexEntryId(null); // Ensure only one detail view is active
+  }
 
   const playSound = () => {
     // @ts-ignore
@@ -95,12 +125,21 @@ const AppContent: React.FC = () => {
             />
             <main className="flex-grow flex flex-col overflow-y-auto">
               {view === 'chat' && <ChatInterface isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} />}
-              {view === 'diary' && <PlantDiary />}
-              {view === 'codex' && <Codex />}
+              {view === 'diary' && <PlantDiary 
+                selectedPlantId={selectedPlantId}
+                onSelectPlant={setSelectedPlantId}
+                onBack={() => setSelectedPlantId(null)}
+              />}
+              {view === 'codex' && <Codex 
+                 selectedEntryId={selectedCodexEntryId}
+                 onSelectEntry={setSelectedCodexEntryId}
+                 onBack={() => setSelectedCodexEntryId(null)}
+                 onNavigateToPlant={handleNavigateToPlant}
+              />}
             </main>
             <BottomNavBar
               currentView={view}
-              onViewChange={setView}
+              onViewChange={handleViewChange}
             />
             {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
             {isNotificationsOpen && (
