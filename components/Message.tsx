@@ -26,6 +26,7 @@ interface MessageProps {
         image: string,
         scientificName?: string,
         description?: string,
+        identificationResult: string,
     }) => void;
 }
 
@@ -48,10 +49,11 @@ const Message: React.FC<MessageProps> = ({ message, onAddToDiary }) => {
     const scientificName = scientificNameMatch ? scientificNameMatch[1].trim() : undefined;
 
     onAddToDiary({
-      name: '', // Leave plant name empty for user input
+      name: '', // Leave plant name empty for user input, it will be extracted in the parent
       image: userImageForIdentification,
       scientificName,
       description: '', // Leave description empty for user input
+      identificationResult: text,
     });
   };
 

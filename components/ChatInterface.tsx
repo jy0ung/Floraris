@@ -12,6 +12,8 @@ interface ChatInterfaceProps {
   onSidebarClose: () => void;
 }
 
+type PlantToAdd = Omit<Plant, 'id' | 'entries' | 'addedDate'> & { identificationResult?: string };
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ isSidebarOpen, onSidebarClose }) => {
   const { 
     sessions, 
@@ -25,7 +27,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ isSidebarOpen, onSidebarC
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [addPlantModalOpen, setAddPlantModalOpen] = useState(false);
-  const [plantToAdd, setPlantToAdd] = useState<Omit<Plant, 'id' | 'entries' | 'addedDate'> | null>(null);
+  const [plantToAdd, setPlantToAdd] = useState<PlantToAdd | null>(null);
 
   // Create an initial session if none exist
   useEffect(() => {
@@ -61,17 +63,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ isSidebarOpen, onSidebarC
     ? [welcomeMessage, ...messages] 
     : messages;
 
-  const handleAddToDiary = ({ name, image, scientificName, description }: {
+  const handleAddToDiary = ({ name, image, scientificName, description, identificationResult }: {
     name: string;
     image: string;
     scientificName?: string;
     description?: string;
+    identificationResult: string;
   }) => {
+    // Extract a potential name from the markdown result (the first H1)
+    const nameMatch = identificationResult.match(/^#\s*(.*)/m);
+    const extractedName = nameMatch ? nameMatch[1].trim() : '';
+
     setPlantToAdd({ 
-      name,
+      name: name || extractedName,
       primaryImage: image,
       scientificName,
       description,
+      identificationResult,
      });
     setAddPlantModalOpen(true);
   };
