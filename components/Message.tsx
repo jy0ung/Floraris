@@ -38,8 +38,8 @@ const Message: React.FC<MessageProps> = ({ message, onAddToDiary }) => {
   const sanitizedHtml = useMemo(() => parseMarkdown(text), [text]);
 
   const messageContainerClasses = `flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`;
-  const messageBubbleClasses = `max-w-md lg:max-w-lg rounded-xl px-4 py-3 shadow-sm ${isUser ? 'bg-brand-green-600 text-white' : 'bg-white text-gray-800'}`;
-  const proseClasses = `prose prose-base max-w-none text-inherit ${isUser ? 'prose-invert' : 'dark:prose-invert'}`;
+  const messageBubbleClasses = `max-w-md lg:max-w-lg rounded-xl px-3 sm:px-4 py-2 sm:py-3 shadow-sm ${isUser ? 'bg-brand-green-600 text-white' : 'bg-white text-gray-800'}`;
+  const proseClasses = `prose prose-sm max-w-none text-inherit ${isUser ? 'prose-invert' : 'dark:prose-invert'}`;
 
   const handleAddToDiaryClick = () => {
     if (!userImageForIdentification) return;

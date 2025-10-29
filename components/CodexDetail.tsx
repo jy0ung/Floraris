@@ -15,6 +15,9 @@ import useRelatedPlants from '../hooks/useRelatedPlants';
 import CodexCard from './CodexCard';
 import ShareIcon from './icons/ShareIcon';
 import ShareFallbackModal from './ShareFallbackModal';
+import PencilIcon from './icons/PencilIcon';
+import EditCodexModal from './EditCodexModal';
+import WarningIcon from './icons/WarningIcon';
 
 
 interface CodexDetailProps {
@@ -54,6 +57,7 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
     const { plants } = useDiary();
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [isShareModalOpen, setShareModalOpen] = useState(false);
+    const [isEditModalOpen, setEditModalOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
     
     const { relatedPlantNames, isLoading: areRelatedPlantsLoading } = useRelatedPlants(entry);
@@ -152,7 +156,14 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
                                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{entry.name}</h1>
                                 <p className="mt-1 text-md text-gray-500 dark:text-gray-400 italic">{entry.scientificName}</p>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-4">
+                                <button
+                                    onClick={() => setEditModalOpen(true)}
+                                    className="p-2 text-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    aria-label={`Edit ${entry.name} Codex Entry`}
+                                >
+                                    <PencilIcon />
+                                </button>
                                 <button
                                     onClick={handleShare}
                                     className="p-2 text-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -175,6 +186,24 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
                         />
                     </div>
                 </div>
+
+                {/* Content Warning Section */}
+                {entry.contentWarning && (
+                    <div className="bg-yellow-100 dark:bg-yellow-900/40 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-300 p-4 rounded-md" role="alert">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <WarningIcon />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm font-bold">Caution</p>
+                                <div className="mt-2 text-sm">
+                                    <p>{entry.contentWarning}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 {/* Care Guide Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -217,6 +246,12 @@ const CodexDetail: React.FC<CodexDetailProps> = ({ entry, onBack, onNavigateToPl
                 <ShareFallbackModal
                     url={`${window.location.origin}${window.location.pathname}?codexId=${entry.id}`}
                     onClose={() => setShareModalOpen(false)}
+                />
+            )}
+            {isEditModalOpen && (
+                <EditCodexModal
+                    entry={entry}
+                    onClose={() => setEditModalOpen(false)}
                 />
             )}
         </>

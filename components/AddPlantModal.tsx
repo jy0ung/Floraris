@@ -38,12 +38,27 @@ const AddPlantModal: React.FC<AddPlantModalProps> = ({ onClose, initialData, edi
     } else {
       const newPlant = addPlant({ name, primaryImage: image, scientificName, description });
       if (initialData?.identificationResult) {
+        let markdownContent = initialData.identificationResult;
+        let contentWarning: string | undefined = undefined;
+
+        // Regex to find a "Warning" heading and capture its content
+        // It captures everything until the next heading or the end of the string.
+        const warningRegex = /^##\s+Warning:\s*([\s\S]*?)(?=^##\s|\s*$)/im;
+        const warningMatch = markdownContent.match(warningRegex);
+        
+        if (warningMatch) {
+            contentWarning = warningMatch[1].trim();
+            // Remove the warning section from the main markdown to avoid duplication
+            markdownContent = markdownContent.replace(warningRegex, '').trim();
+        }
+
         addCodexEntry({
             plantId: newPlant.id,
             name: newPlant.name,
             scientificName: newPlant.scientificName || '',
             image: newPlant.primaryImage,
-            markdownContent: initialData.identificationResult
+            markdownContent: markdownContent,
+            contentWarning: contentWarning,
         });
       }
       if (onSave) {

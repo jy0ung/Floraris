@@ -4,6 +4,7 @@ import { CodexEntry } from '../types';
 interface CodexContextType {
   codexEntries: CodexEntry[];
   addCodexEntry: (entryData: Omit<CodexEntry, 'id'>) => void;
+  updateCodexEntry: (entryId: string, updates: Partial<Pick<CodexEntry, 'markdownContent' | 'contentWarning'>>) => void;
   deleteCodexEntry: (entryId: string) => void;
 }
 
@@ -50,12 +51,22 @@ export const CodexProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setCodexEntries(prev => [...prev, newEntry]);
   };
+
+  const updateCodexEntry = (entryId: string, updates: Partial<Pick<CodexEntry, 'markdownContent' | 'contentWarning'>>) => {
+    setCodexEntries(prev =>
+      prev.map(entry =>
+        entry.id === entryId
+          ? { ...entry, ...updates }
+          : entry
+      )
+    );
+  };
   
   const deleteCodexEntry = (entryId: string) => {
     setCodexEntries(prev => prev.filter(entry => entry.id !== entryId));
   };
 
-  const value = { codexEntries, addCodexEntry, deleteCodexEntry };
+  const value = { codexEntries, addCodexEntry, updateCodexEntry, deleteCodexEntry };
 
   return (
     <CodexContext.Provider value={value}>

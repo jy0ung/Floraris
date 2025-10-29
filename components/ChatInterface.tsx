@@ -118,7 +118,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ isSidebarOpen, onSidebarC
             onDeleteSession={deleteSession}
         />
         <div className="flex-1 w-full flex flex-col bg-brand-purple-50">
-            <div className="flex-1 overflow-y-auto space-y-4 p-4 no-scrollbar">
+            <div className="flex-1 overflow-y-auto space-y-3 p-2 sm:p-4 no-scrollbar">
             {displayMessages.map((msg) => (
                 <Message key={msg.id} message={msg} onAddToDiary={handleAddToDiary} />
             ))}

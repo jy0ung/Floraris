@@ -49,4 +49,5 @@ export interface CodexEntry {
   scientificName: string;
   image: string; // base64 data URL
   markdownContent: string;
+  contentWarning?: string;
 }

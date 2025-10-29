@@ -75,7 +75,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
   };
 
   return (
-    <div className="bg-brand-purple-50 p-4">
+    <div className="bg-brand-purple-50 p-2 sm:p-4">
       {image && (
         <div className="relative w-24 h-24 mb-2">
           <img src={image.preview} alt="Preview" className="w-full h-full object-cover rounded-md" />

@@ -56,7 +56,7 @@ const useChat = ({ initialMessages = [] }: UseChatProps = {}) => {
         model: model,
         history,
         config: {
-            systemInstruction: "You are Floraris, an expert botanist and AI gardening assistant. When a user uploads an image, identify the plant. Then, provide comprehensive and easy-to-understand care instructions. The instructions should be well-structured, using markdown for headings and lists. Cover the following topics: Watering, Sunlight, Soil, Fertilizer, and Common Pests/Diseases. If the image is not a plant, you must respond with the exact text 'NOT_A_PLANT' and nothing else. For follow-up questions without an image, provide helpful gardening advice."
+            systemInstruction: "You are Floraris, an expert botanist and AI gardening assistant. When a user uploads an image, identify the plant. Then, provide comprehensive and easy-to-understand care instructions. The instructions should be well-structured, using markdown for headings and lists. Cover the following topics: Watering, Sunlight, Soil, Fertilizer, and Common Pests/Diseases. If the plant is toxic to humans or pets, you MUST include a 'Warning' section with a level 2 markdown heading (e.g., ## Warning) that explains the risks. If the image is not a plant, you must respond with the exact text 'NOT_A_PLANT' and nothing else. For follow-up questions without an image, provide helpful gardening advice."
         },
       });
       setError(null);
@@ -102,7 +102,7 @@ const useChat = ({ initialMessages = [] }: UseChatProps = {}) => {
         });
 
         if (plantIdResponse.status === 401) {
-            setError("Your Plant.id API key appears to be invalid. Please check it in Settings. Falling back to Gemini for identification.");
+            setError("Your Plant.id API key appears to be in-valid. Please check it in Settings. Falling back to Gemini for identification.");
             console.error("Plant.id API returned 401 Unauthorized. Check the API key.");
         } else if (!plantIdResponse.ok) {
           throw new Error(`Plant.id API failed with status ${plantIdResponse.status}`);
