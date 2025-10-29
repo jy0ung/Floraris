@@ -4,25 +4,12 @@ import PaperclipIcon from './icons/PaperclipIcon';
 import CameraIcon from './icons/CameraIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import CameraCapture from './CameraCapture';
+import { fileToBase64 } from '../utils/fileUtils';
 
 interface InputBarProps {
   onSend: (text: string, image?: { b64: string; mime: string }) => void;
   disabled: boolean;
 }
-
-const fileToB64 = (file: File): Promise<{ b64: string; mime: string }> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-            const result = reader.result as string;
-            const [mimePart, b64Part] = result.split(';base64,');
-            const mime = mimePart.split(':')[1];
-            resolve({ b64: b64Part, mime });
-        };
-        reader.onerror = (error) => reject(error);
-    });
-};
 
 const dataUrlToB64 = (dataUrl: string): { b64: string; mime: string } => {
     const [mimePart, b64Part] = dataUrl.split(';base64,');
@@ -53,9 +40,10 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const fileData = await fileToB64(file);
+      const dataUrl = await fileToBase64(file);
+      const fileData = dataUrlToB64(dataUrl);
       setImage({
-        preview: URL.createObjectURL(file),
+        preview: dataUrl,
         fileData: fileData
       });
     }
@@ -87,7 +75,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
   };
 
   return (
-    <div className="bg-white border-t border-gray-200 p-4 fixed bottom-0 w-full max-w-4xl mx-auto" style={{left: '50%', transform: 'translateX(-50%)'}}>
+    <div className="bg-brand-purple-50 p-4">
       {image && (
         <div className="relative w-24 h-24 mb-2">
           <img src={image.preview} alt="Preview" className="w-full h-full object-cover rounded-md" />
@@ -102,7 +90,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
           </button>
         </div>
       )}
-      <div className="flex items-end bg-gray-100 rounded-lg p-2">
+      <div className="flex items-end bg-white rounded-lg p-2 border border-brand-purple-200">
         <input
           type="file"
           accept="image/*"
@@ -112,7 +100,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-gray-500 hover:text-brand-green-600 disabled:opacity-50"
+          className="p-2 text-gray-500 hover:text-brand-purple-600 disabled:opacity-50"
           disabled={disabled || !!image}
           aria-label="Attach file"
         >
@@ -120,7 +108,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
         </button>
         <button
           onClick={() => setIsCameraOpen(true)}
-          className="p-2 text-gray-500 hover:text-brand-green-600 disabled:opacity-50"
+          className="p-2 text-gray-500 hover:text-brand-purple-600 disabled:opacity-50"
           disabled={disabled || !!image}
           aria-label="Use camera"
         >
@@ -139,7 +127,7 @@ const InputBar: React.FC<InputBarProps> = ({ onSend, disabled }) => {
         <button
           onClick={handleSend}
           disabled={disabled || !canSend}
-          className="p-2 text-white bg-brand-green-600 rounded-full disabled:bg-brand-green-300 disabled:cursor-not-allowed"
+          className="p-2 text-white bg-brand-purple-600 rounded-full disabled:bg-brand-purple-200 disabled:cursor-not-allowed"
           aria-label="Send message"
         >
           <SendIcon />
